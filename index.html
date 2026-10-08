@@ -687,18 +687,17 @@ function confirmHTML() {
 }
 function cardHTML(it, mode, main) {
   const q = qOf(it), V = vOf(it), review = mode === 'review';
-  // Nomor soal di sumber/cheatsheet baru tampil di pembahasan setelah sesi selesai, supaya tidak jadi petunjuk.
-  const meta = [`<span>Modul ${q.m}: ${esc(D.modules[q.m])}</span>`, `<span>Topik ${esc(V.t || q.t)}</span>`];
-  if (review) meta.unshift(`<span class="no">No. ${q.n}</span>`);
-  if (q.vs.length > 1) meta.push(`<span>Versi ${it.v + 1} dari ${q.vs.length}</span>`);
-  if (q.dup && review) meta.push(`<span>Sama persis dengan no. ${q.dup}</span>`);
+  // Nomor, modul, topik, dan versi soal baru tampil di pembahasan setelah sesi selesai, supaya tidak jadi petunjuk.
+  const meta = review ? [`<span class="no">No. ${q.n}</span>`, `<span>Modul ${q.m}: ${esc(D.modules[q.m])}</span>`, `<span>Topik ${esc(V.t || q.t)}</span>`] : [];
+  if (review && q.vs.length > 1) meta.push(`<span>Versi ${it.v + 1} dari ${q.vs.length}</span>`);
+  if (review && q.dup) meta.push(`<span>Sama persis dengan no. ${q.dup}</span>`);
   const ctx = q.ctx.map(c => (c.pre ? `<pre class="ctx pre">${esc(c.x)}</pre>` : `<p class="ctx${c.b ? ' b' : ''}">${esc(c.x)}</p>`)).join('');
   const ex = q.ex.map(id => {
     const im = D.images[id];
     return `<figure class="exhibit"><button type="button" class="zoomable" data-zoom="${id}" aria-label="Perbesar gambar exhibit"><img src="${im.src}" width="${im.w}" height="${im.h}" alt="Exhibit soal"></button><figcaption>Ketuk gambar untuk memperbesar.</figcaption></figure>`;
   }).join('');
   const body = q.k === 'mc' ? mcHTML(it, mode) : `<div id="${main ? 'm-wrap' : ''}">${matchHTML(it, mode)}</div>`;
-  return `<p class="meta">${meta.join('')}</p><h2 class="stem"${main ? ' id="stem"' : ''}>${esc(q.q)}</h2>${ctx}${ex}${body}`;
+  return `${meta.length ? `<p class="meta">${meta.join('')}</p>` : ''}<h2 class="stem"${main ? ' id="stem"' : ''}>${esc(q.q)}</h2>${ctx}${ex}${body}`;
 }
 function mcHTML(it, mode) {
   const q = qOf(it), V = vOf(it), isLive = mode === 'live';
