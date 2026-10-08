@@ -337,7 +337,7 @@ const app = document.getElementById('app');
 const zoom = document.getElementById('zoom');
 const live = document.getElementById('live');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const EXAM_MIN = 60;                       // batas waktu mode ujian (menit)
+const EXAM_MIN = 120;                      // batas waktu mode ujian (menit)
 const EXAM_MS = EXAM_MIN * 60000;
 const WARN_MS = 5 * 60000;                 // 5 menit terakhir: penghitung berubah oranye
 const CLOCK = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="9" r="5.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 6.2v3l2 1.3M6.2 1.6h3.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
@@ -566,7 +566,7 @@ function setupView() {
       <div class="lab" id="l-mode">Mode</div>
       <div class="modes" role="radiogroup" aria-labelledby="l-mode">
         <label><input type="radio" name="mode" value="practice" data-f="mode-practice" ${settings.mode === 'practice' ? 'checked' : ''}><span><b>Latihan</b><small>Jawaban dicek per soal, penjelasan langsung muncul.</small></span></label>
-        <label><input type="radio" name="mode" value="exam" data-f="mode-exam" ${settings.mode === 'exam' ? 'checked' : ''}><span><b>Ujian</b><small>Batas waktu ${EXAM_MIN} menit. Nilai dan pembahasan baru muncul setelah selesai.</small></span></label>
+        <label><input type="radio" name="mode" value="exam" data-f="mode-exam" ${settings.mode === 'exam' ? 'checked' : ''}><span><b>Ujian</b><small>Batas waktu ${duration(EXAM_MIN)}. Nilai dan pembahasan baru muncul setelah selesai.</small></span></label>
       </div>
 
       <div class="lab">Pilihan jawaban</div>
@@ -602,13 +602,20 @@ function onSetupChange(t) {
 /* ---------- timer mode ujian ---------- */
 const timeLeft = () => S.deadline - Date.now();
 const expired = () => !!(S && !S.done && S.mode === 'exam' && S.deadline && timeLeft() <= 0);
+// 2:00:00 → … → 1:00:00 → 59:59 → … → 00:00
 function clock(ms) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600);
+  const mm = String(Math.floor(s / 60) % 60).padStart(2, '0'), ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+// 120 → "2 jam", 95 → "1 jam 35 menit", 42 → "42 menit"
+function duration(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return [h ? `${h} jam` : '', m || !h ? `${m} menit` : ''].filter(Boolean).join(' ');
 }
 function timerHTML() {
   const ms = timeLeft();
-  return `<span class="timer${ms <= WARN_MS ? ' warn' : ''}" role="timer" title="Batas waktu ujian ${EXAM_MIN} menit">${CLOCK}<span class="sr">Sisa waktu </span><span class="t">${clock(ms)}</span></span>`;
+  return `<span class="timer${ms <= WARN_MS ? ' warn' : ''}" role="timer" title="Batas waktu ujian ${duration(EXAM_MIN)}">${CLOCK}<span class="sr">Sisa waktu </span><span class="t">${clock(ms)}</span></span>`;
 }
 function tick() {
   if (screen !== 'quiz' || !S || S.done || S.mode !== 'exam') return;
@@ -632,7 +639,7 @@ function timeUp() {
 }
 function resumeLabel() {
   if (S.mode !== 'exam') return `Lanjutkan sesi tadi (soal ${S.i + 1} dari ${S.items.length})`;
-  return expired() ? 'Lihat hasil ujian tadi (waktu habis)' : `Lanjutkan ujian tadi (sisa ${Math.ceil(timeLeft() / 60000)} menit)`;
+  return expired() ? 'Lihat hasil ujian tadi (waktu habis)' : `Lanjutkan ujian tadi (sisa ${duration(Math.ceil(timeLeft() / 60000))})`;
 }
 
 /* ---------- layar soal ---------- */
@@ -932,7 +939,7 @@ function resultView() {
   <header class="top"><div class="top-in"><span class="brand">Hasil ${S.mode === 'exam' ? 'ujian' : 'latihan'}</span><span class="grow"></span>${themeBtn()}</div></header>
   <main class="wrap">
     <p class="score">${okN}/${n}<small>${Math.round(100 * okN / n)}% benar</small></p>
-    <p class="lede">${S.timeout ? `<strong class="warn">Waktu ${EXAM_MIN} menit habis</strong>; soal yang belum dijawab tidak mendapat nilai. ` : ''}${badN} salah${skipN ? `, ${skipN} tidak dijawab` : ''}. ${S.mode === 'exam' ? (S.timeout ? '' : `Waktu ${mins} dari ${EXAM_MIN} menit. `) : `Waktu ${mins} menit. `}Pilih port untuk membuka pembahasan soalnya.</p>
+    <p class="lede">${S.timeout ? `<strong class="warn">Waktu ${duration(EXAM_MIN)} habis</strong>; soal yang belum dijawab tidak mendapat nilai. ` : ''}${badN} salah${skipN ? `, ${skipN} tidak dijawab` : ''}. ${S.mode === 'exam' ? (S.timeout ? '' : `Waktu ${duration(mins)} dari ${duration(EXAM_MIN)}. `) : `Waktu ${duration(mins)}. `}Pilih port untuk membuka pembahasan soalnya.</p>
     ${rackHTML(ports, {label: 'Hasil per soal'})}
     <div class="actions">
       ${notOk.length ? `<button type="button" class="btn primary big" data-act="retry">Ulangi ${notOk.length} soal yang belum benar</button>` : ''}
@@ -1115,6 +1122,8 @@ window.__quiz = {
   data: D,
   start(list, opts = {}) { newSession(list, opts.mode || 'practice', opts.shuffle !== false); },
   get session() { return S; },
+  examMs: EXAM_MS,
+  clock,
 };
 
 setInterval(tick, 1000);
